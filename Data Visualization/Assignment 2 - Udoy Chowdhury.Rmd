@@ -1,0 +1,261 @@
+---
+title: "Fantasy Premier League Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns               
+    vertical_layout: fill
+    theme:
+      version: 4
+      bg: "white" # Graph box color
+      fg: "Black"  # Graph Title
+      primary: "black"  # Banner color
+      base_font:
+        google: "Lato"  # Banner Font
+runtime: shiny # How to make dynamic
+   
+---
+
+```{r setup, include=FALSE}
+
+# Structure
+library(flexdashboard)
+library(shiny)
+library(shinyWidgets)
+
+# Core
+library(tidyverse)
+library(lubridate)
+library(readxl)
+
+# Data Visualization
+library(plotly)
+
+```
+
+```{r}
+# Read in data
+fpl_data <- read_excel(path = "FPL Transfer Data.xlsx")
+```
+
+
+Sidebar {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+# Filter out faulty values from the dataset
+fpl_data_clean <- filter(fpl_data, Position != "#NAME?" & Team != "#NAME?")
+
+# Checkbox group for selecting player positions
+shinyWidgets::checkboxGroupButtons(
+    inputId   = "checkbox_position", 
+    label     = h4("Player Position"), 
+    choices   = unique(fpl_data_clean$Position), 
+    selected  = unique(fpl_data_clean$Position), 
+    checkIcon = list(
+        yes = icon("ok", lib = "glyphicon"), 
+        no = icon("remove", lib = "glyphicon")
+    )
+)
+
+# Dropdown picker for selecting player teams
+shinyWidgets::pickerInput(
+    inputId  = "picker_team", 
+    label    = h4("Player Team"), 
+    choices  = unique(fpl_data_clean$Team),
+    selected = unique(fpl_data_clean$Team),
+    multiple = TRUE, 
+    options  = list(
+        `actions-box` = TRUE, 
+        size = 10, 
+        `selected-text-format` = "count > 3"
+    )
+)
+
+# Reset the selections for player position and team.
+observeEvent(eventExpr = input$reset, handlerExpr = {
+
+    # Reset the checkbox selections for player positions to default (all positions).
+    updateCheckboxGroupButtons(
+        session = session, 
+        inputId = "checkbox_position", 
+        selected = unique(fpl_data_clean$Position)
+    )
+    
+    # Reset the dropdown selections for player teams to default (all teams).
+    updatePickerInput(
+        session = session, 
+        inputId = "picker_team", 
+        selected = unique(fpl_data_clean$Team)
+    )
+    
+})
+
+# Dropdown picker for selecting the X axis metric of the scatter plot.
+shinyWidgets::pickerInput(
+    inputId  = "picker_x_metric", 
+    label    = h4("X-axis Metric"), 
+    choices  = c("Form", "GW Points", "Total Points"),
+    selected = "Total Points",
+    multiple = FALSE
+)
+
+# Dropdown picker for selecting the Y axis metric of the scatter plot.
+shinyWidgets::pickerInput(
+    inputId  = "picker_y_metric", 
+    label    = h4("Y-axis Metric"), 
+    choices  = c("Cost Today", "FD Index", "Selection %"),
+    selected = "Cost Today",
+    multiple = FALSE
+)
+
+# Dropdown picker for filtering the scatter plot by a specific team.
+shinyWidgets::pickerInput(
+    inputId  = "scatter_picker_team", 
+    label    = h4("Scatter Plot Team Filter"), 
+    choices  = unique(fpl_data_clean$Team),
+    selected = unique(fpl_data_clean$Team)[1], # Default to the first team
+    multiple = FALSE
+)
+
+```
+
+Column {data-height=1000}
+-----------------------------------------------------------------------
+``` {r}
+# Scatter Plot
+# Reactive table based on user input for player position and team
+player_plot_tbl <- reactive({
+
+  # Use the cleaned dataset
+  data <- fpl_data_clean
+  
+  # Filtering data based on user input for player position
+  data <- filter(data, Position %in% input$checkbox_position)
+    
+  # Filtering data based on user input for player team
+  data <- filter(data, Team %in% input$picker_team)
+
+  # Group by team
+  data_grouped <- group_by(data, Team)
+    
+  # Summarize total players per team
+  data_summarised <- summarise(data_grouped, total_players = n())
+    
+  # Create label text for each team
+  mutate(data_summarised, label_text = str_glue("Team: {Team}
+                                                 Total Players: {total_players}"))
+
+})
+
+# Reactive dataset for scatter plot based on user input for player position and team
+scatter_plot_data <- reactive({
+  data <- fpl_data_clean
+
+  # Filter the data to include user selected position
+  data <- filter(data, Position %in% input$checkbox_position)
+
+  # Filter the data to include user selected teams
+  filter(data, Team %in% input$picker_team)
+})
+
+# Update the reactive scatter plot data to filter based on the selected team
+scatter_plot_data <- reactive({
+  data <- fpl_data_clean
+
+  # Filter the data to include user selected position
+  data <- filter(data, Position %in% input$checkbox_position)
+
+  # Filter the data to include user selected teams
+  data <- filter(data, Team %in% input$picker_team)
+
+  # Filter the data to include user selected players from specific team
+  filter(data, Team == input$scatter_picker_team) 
+})
+
+
+# Bar Chart
+player_plot_tbl <- reactive({
+
+  # Use the cleaned dataset
+  data <- fpl_data_clean
+  
+  # Filtering data based on user input for player position
+  data <- filter(data, Position %in% input$checkbox_position)
+    
+  # Filtering data based on user input for player team
+  data <- filter(data, Team %in% input$picker_team)
+
+  # Group by team and position
+  data_grouped <- group_by(data, Team, Position)
+    
+  # Summarise total players per team and position
+  data_summarised <- summarise(data_grouped, total_players = n())
+    
+  # Arrange data by team and position
+  arrange(data_summarised, Team, Position)
+
+})
+
+```
+
+
+``` {r}
+# Create Bar Chart
+output$fpl_plot <- renderPlotly({
+  
+  # Get the prepared data for the bar chart
+  data <- player_plot_tbl()
+  # Define a color vector
+  colors <- c("GK" = "red", "DEF" = "orange", "MID" = "green", "FWD" = "blue")
+
+  # Create a bar chart using plot_ly
+  chart <- plot_ly(data = data, 
+                   x = ~Team, 
+                   y = ~total_players, 
+                   color = ~Position, 
+                   colors = colors,
+                   type = "bar", 
+                   text = ~paste(Position, total_players, "players"))
+  
+  # Set the layout for the bar chart
+  chart <- layout(chart,
+                  title = "Number of Players in Each Position by Team",
+                  xaxis = list(title = "Team"),
+                  yaxis = list(title = "Number of Players"),
+                  barmode = 'stack')
+  
+  chart
+})
+
+# Display the bar chart
+plotlyOutput(outputId = "fpl_plot")
+
+# Create Scatter Plot
+output$scatter_plot <- renderPlotly({
+  
+  # Get the data for the scatter plot
+  data <- scatter_plot_data()
+  
+  # Create a scatter plot using plot_ly
+  chart <- plot_ly(data = data, 
+                   x = ~data[[input$picker_x_metric]], 
+                   y = ~data[[input$picker_y_metric]], 
+                   text = ~paste(Name, Last_Name),
+                   type = "scatter", 
+                   mode = "markers",
+                   marker = list(size = 10))
+  
+  # Set the layout for the scatter plot
+  chart <- layout(chart,
+                  title = paste("Comparison of", input$picker_x_metric, "and", input$picker_y_metric),
+                  xaxis = list(title = input$picker_x_metric),
+                  yaxis = list(title = input$picker_y_metric))
+  
+  chart
+})
+
+# Display the scatter plot
+plotlyOutput(outputId = "scatter_plot")
+
+
+```

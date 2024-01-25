@@ -1,0 +1,80 @@
+---
+title: Assignment 1
+author: Udoy Chowdhury
+date: October 4, 2023
+output: html_document
+---
+
+# Install Packages
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse) # Manipulates and visualizes data
+library(lubridate) # Formats date data
+library(httr) 
+library(viridis)
+library(tidyquant) # Helps with analysis and formatting- times series data
+library(readxl)    # Imports Excel data
+```
+
+## Graph 1
+### Quantity Distribution by Bike Category
+The graph illustrates the distribution of bike quantities sold across different combined bike categories. Each histogram represents a distinct bike category, and the height of the bars indicates the number of times a specific quantity was sold, allowing for a comprehensive view of sales patterns for each category.
+```{r}
+# Create a new column 'combined_category' that combines category_1 and category_2
+bike_tbl$combined_category <- paste(bike_tbl$category_1, bike_tbl$category_2, sep = " - ")
+
+# Create the plot using quantity as the x-axis and make the categories different colors
+plot <- ggplot(bike_tbl, aes(x = quantity, fill = combined_category), bins = 100) +  
+  scale_y_continuous(breaks = seq(0, 3000, by = 500)) +
+  # Create a histogram based on how many bikes are in each quantity range
+  geom_histogram(stat = "bin") +                
+  # Divide the graph based on combined_category
+  facet_wrap(~ combined_category, nrow=3) +                    
+  # Make the graph into a special design
+  theme_tq() + theme(aspect.ratio = 0.4) +                               
+  # Pick the color
+  scale_fill_viridis(discrete = TRUE)+ 
+  # Remove the color guide and grid lines
+  theme(legend.position = "none",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +   
+  # Add labels to the plot
+  labs(title = "Quantity Distribution by Bike Category", x = "Quantity", y = "Count")  
+
+# Finally, we show our beautiful graph to the world!
+print(plot)
+```
+
+## Graph 2
+### Bike Shop Performance in 2011
+The graph visualizes the performance of different bike shops in 2011 by plotting their total sales over time. Each line represents a bike shop, with its highest sales point labeled with the shop's name, allowing for easy comparison of peak performances among shops.
+```{r}
+# Filter the data to only include entries from the year 2011
+bike_tbl_2011 <- bike_tbl[format(bike_tbl$order_date, "%Y") == "2011", ]
+
+# Identify the highest total_price for each bike shop in the 2011 data
+highest_points <- aggregate(total_price ~ bikeshop_name, bike_tbl_2011, max)
+
+# Merge the highest_points data with the original 2011 data to get the corresponding order_date for each highest point
+highest_points <- merge(highest_points, bike_tbl_2011)
+
+# Create the line plot for the 2011 data
+plot <- ggplot(bike_tbl_2011, aes(x = order_date, y = total_price, color = bikeshop_name, group = bikeshop_name)) +  
+  # Add lines to the plot for each bike shop's performance over time
+  geom_line() +
+  # Annotate the highest point of each line with the bike shop's name
+  geom_text(data = highest_points, aes(label = bikeshop_name), vjust = -0.5, hjust = 0.5, size = 3, show.legend = FALSE) +
+  # Apply a minimal theme to the plot for a clean appearance
+  theme_minimal() +                                   
+  # Pick the color
+  scale_fill_viridis(discrete = TRUE)+ 
+  # Remove the grid lines
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +  
+  # Add title and axis labels to the plot
+  labs(title = "Bike Shop Performance in 2011", x = "Date", y = "Total Price")  
+
+# Display the plot
+print(plot)
+
+```

@@ -1,0 +1,12 @@
+name: Test2
+title: Test2
+username: cru525-udoy
+account: cru525-udoy
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 10424145
+bundleId: 7892540
+url: https://cru525-udoy.shinyapps.io/Test2/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
