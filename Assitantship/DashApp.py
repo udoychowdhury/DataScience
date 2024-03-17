@@ -34,6 +34,8 @@ from scipy.stats import pearsonr
 # ================================= Read Excel File =================================
 file_path = '/Users/udoychowdhury/Documents/Assitantship/Conditionally Admitted Students Updated.xlsx'
 df = pd.read_excel(file_path)
+merge_file_path = '/Users/udoychowdhury/Documents/Assitantship/Merged Conditionally Admitted Students.xlsx'
+mergedf = pd.read_excel(merge_file_path)
 
 # Replace NaN with NULL
 df.replace({pd.NA: 'NULL', pd.NaT: 'NULL'}, inplace=True)
@@ -42,6 +44,8 @@ df.replace({pd.NA: 'NULL', pd.NaT: 'NULL'}, inplace=True)
 numerical_columns = df.select_dtypes(include=['float64', 'int64']).columns
 object_columns = df.select_dtypes(include='object').columns
 object_df = df[object_columns]
+cat_cols = pd.DataFrame(mergedf[mergedf.select_dtypes(include=['object']).columns])
+num_cols = pd.DataFrame(mergedf[mergedf.select_dtypes(include = ['float', 'int']).columns])
 # ================================= Read Excel File =================================
 
 
@@ -313,6 +317,38 @@ app.layout = dbc.Container([
         style=tab_style,
         label_style= label_style),
 
+        # Tab for One-Hot Encoding and Heatmap
+        dbc.Tab(label='One-Hot Encoding Visualization', children=[
+
+            html.Div([
+                # Multi-value dropdown for selecting columns to encode
+                dcc.Dropdown(
+                    id='variable-selector-encoded-columns',
+                    options=[{'label': col, 'value': col} for col in cat_cols.columns],
+                    multi=True,  # Allow multiple selections
+                    placeholder="Select categorical columns to encode",
+                ),
+                # Inside dbc.Container or dbc.Tab for your new tab
+                dcc.Dropdown(
+                    id='numerical-variable-selector-encoded-columns',
+                    options=[{'label': col, 'value': col} for col in num_cols.columns],
+                    placeholder="Select a numeric column"
+                ),
+                dcc.Dropdown(
+                    id='display-option-encoded-columns',
+                    options=[
+                        {'label': 'Full View', 'value': 'full'},
+                        {'label': 'First Column Only', 'value': 'first_col'}
+                    ],
+                    placeholder="Select view mode"
+                ),
+
+                # Placeholder for the heatmap
+                dcc.Graph(id='heatmap-encoded-columns')
+            ], style={'padding': '20px'}),  # Adjust overall padding as needed
+
+        ], style=tab_style, label_style=label_style),
+
         # Styling the tabs
     ], style={'padding': '20px', 'backgroundColor': 'transparent', 'border': 'none'}) 
 ])
@@ -388,7 +424,6 @@ def update_correlation_plot(y_var):
     # Return empty scatter plot if no Y variable is selected
     return px.scatter()  
 
-# Cramer's V Correlation
 # Callback to update Cramer's V scatter plot for all vairblaes
 @app.callback(
     Output('correlation-scatter-plot-cramers-v', 'figure'),
@@ -450,6 +485,51 @@ def update_geo_plot(x_var):
     
 
     return fig 
+
+# Callback to update the one hot encode heat map
+@app.callback(
+    Output('heatmap-encoded-columns', 'figure'),
+    [Input('variable-selector-encoded-columns', 'value'),
+     Input('numerical-variable-selector-encoded-columns', 'value'),
+     Input('display-option-encoded-columns', 'value')]
+)
+
+
+def update_custom_heatmap(selected_columns, selected_numeric_col, view_mode):
+    if not selected_columns or not selected_numeric_col:
+        # Return an empty figure if selections are incomplete
+        return px.figure()
+    
+    # Filter cat_cols DataFrame to include only selected columns for encoding
+    filtered_cat_cols = cat_cols[selected_columns]
+
+    # Perform one-hot encoding
+    encoded_cat_cols = pd.get_dummies(filtered_cat_cols)
+
+    # Merge the one-hot encoded categorical columns with the selected numeric column
+    cat_cols_corr = pd.concat([encoded_cat_cols, num_cols[selected_numeric_col]], axis=1)
+
+    # Creates correlation matrix
+    corr = cat_cols_corr.corr().sort_values(by=selected_numeric_col, axis=1, ascending=False)
+    corr = corr.sort_values(by=selected_numeric_col, axis=0, ascending=True)
+
+    # Slice the DataFrame to only include the selected view mode
+    if view_mode == 'first_col':
+        corr = corr[[selected_numeric_col]]
+
+    # Use plotly express to create the heatmap
+    fig = px.imshow(
+        corr,
+        text_auto=True,
+        aspect="auto",
+        origin="lower",
+        color_continuous_scale='RdBu'
+    )
+
+    # Customize the layout if needed
+    fig.update_layout(title="Correlation Heatmap")
+
+    return fig
 # ================================= Call Backs And Functions =================================
 
 
