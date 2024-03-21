@@ -539,4 +539,4 @@ def update_custom_heatmap(selected_columns, selected_numeric_col, view_mode):
 # ================================= Run the App =================================
 if __name__ == '__main__':
     app.run_server(debug=True)
-# ================================= Run the App =================================
+# ================================= Run the App =================================q
