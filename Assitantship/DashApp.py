@@ -34,7 +34,7 @@ from scipy.stats import pearsonr
 # ================================= Read Excel File =================================
 file_path = '/Users/udoychowdhury/Documents/Assitantship/Conditionally Admitted Students Updated.xlsx'
 df = pd.read_excel(file_path)
-merge_file_path = '/Users/udoychowdhury/Documents/Assitantship/Merged Conditionally Admitted Students.xlsx'
+merge_file_path = '/Users/udoychowdhury/Documents/Assitantship/Full Conditionally Admitted Students.xlsx'
 mergedf = pd.read_excel(merge_file_path)
 
 # Replace NaN with NULL
