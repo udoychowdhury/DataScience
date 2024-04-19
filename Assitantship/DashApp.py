@@ -1,29 +1,32 @@
 # ================================= Imports =================================
 # For web application
-import dash  
+import dash
 # For further designing each tab
-import dash_bootstrap_components as dbc  
+import dash_bootstrap_components as dbc
 # For HTML and Core components
-from dash import dcc, html  
+from dash import dcc, html
 # For DataTable component
-from dash import dash_table  
-from dash.dash_table.Format import Group  
+from dash import dash_table
+from dash.dash_table.Format import Group
 # Input and Output for callbacks
-from dash.dependencies import Input, Output  
+from dash.dependencies import Input, Output, State
+
+# For ingesting logistic regression model
+import joblib
 
 # For handling data
-import pandas as pd  
-import numpy as np  
+import pandas as pd
+import numpy as np
 
 # For interactive plotting
-import plotly.express as px  
+import plotly.express as px
 
 # For statistical functions
-from scipy import stats  
+from scipy import stats
 # For One-way ANOVA test
-from scipy.stats import f_oneway  
+from scipy.stats import f_oneway
 # For Pearson correlation coefficient function
-from scipy.stats import pearsonr  
+from scipy.stats import pearsonr
 
 # ================================= Imports =================================
 
@@ -89,6 +92,9 @@ label_style = {
     'color': 'black', 
     'fontWeight': 'bold'
 }
+
+# Load trained pipeline for logistic regression
+pipeline = joblib.load('/Users/udoychowdhury/Documents/DataScience/Assitantship/logistic_regression_pipeline.pkl')
 # ================================= Create The About Text For The App =================================
 
 
@@ -328,7 +334,6 @@ app.layout = dbc.Container([
                     multi=True,  # Allow multiple selections
                     placeholder="Select categorical columns to encode",
                 ),
-                # Inside dbc.Container or dbc.Tab for your new tab
                 dcc.Dropdown(
                     id='numerical-variable-selector-encoded-columns',
                     options=[{'label': col, 'value': col} for col in num_cols.columns],
@@ -347,6 +352,79 @@ app.layout = dbc.Container([
                 dcc.Graph(id='heatmap-encoded-columns')
             ], style={'padding': '20px'}),  # Adjust overall padding as needed
 
+        ], style=tab_style, label_style=label_style),
+
+        # Tab for Predicting Student Success
+        dbc.Tab(label='Predicting Student Success', children=[
+
+            html.Div([
+                # Title for the tab content
+                html.H1("Student GPA Prediction"),
+
+                # Widgets for numerical values
+                dcc.Input(id='total_credit_hours', type='number', placeholder='Total Credit Hours',style={'marginBottom': '10px', 'borderRadius': '5px'}),
+                dcc.Input(id='inst_hours_earned', type='number', placeholder='Institution Hours Earned',style={'marginBottom': '10px', 'borderRadius': '5px'}),
+                dcc.Input(id='overall_hours_attempted', type='number', placeholder='Overall Hours Attempted',style={'marginBottom': '10px', 'borderRadius': '5px'}),
+                dcc.Input(id='overall_hours_earned', type='number', placeholder='Overall Hours Earned',style={'marginBottom': '10px', 'borderRadius': '5px'}),
+                dcc.Input(id='age', type='number', placeholder='Age',style={'marginBottom': '10px', 'borderRadius': '5px'}),
+                dcc.Input(id='sat_math', type='number', placeholder='SAT Math Score',style={'marginBottom': '10px', 'borderRadius': '5px'}),
+                dcc.Input(id='act_composite', type='number', placeholder='ACT Composite Score',style={'marginBottom': '10px', 'borderRadius': '5px'}),
+                dcc.Input(id='total_credits_enrolled', type='number', placeholder='Total Credits Enrolled',style={'marginBottom': '10px', 'borderRadius': '5px'}),
+
+                # Widgets for categorical values
+                dcc.Dropdown(
+                    id='ethnicity',
+                    options=[{'label': label, 'value': label} for label in [
+                        'Hispanic or Latino', 'Caucasian or White', 'Black or African American',
+                        'Asian', 'More Than 1 Race', 'Non Resident Alien',
+                        'Hawaiian or Pacific Islander', 'Unknown or Not Specified'
+                    ]],
+                    placeholder="Select Ethnicity",
+                    style={'marginBottom': '10px', 'borderRadius': '5px'},
+                ),
+                dcc.Dropdown(
+                    id='major_x',
+                    options=[{'label': label, 'value': label} for label in [
+                        'BIOL', 'HLSC', 'ENSC', 'PHYS', 'ENVL', 'MARS', 'CSCI', 'EXSC', 'MATH', 'SSTB',
+                        'BCMB', 'BSNS', 'ARTS', 'HIST', 'CHEM', 'CRIM', 'SOWK', 'COMM', 'LIBA', 'ARTV'
+                    ]],
+                    placeholder="Select Major",
+                    style={'marginBottom': '10px', 'borderRadius': '5px'},
+                ),
+                dcc.Dropdown(
+                    id='instructional_method',
+                    options=[{'label': label, 'value': label} for label in [
+                        'LEC', 'ONL', 'TUT', 'SEM', 'IND', 'LAB', 'L/L', 'DEHYB', 'STU'
+                    ]],
+                    placeholder="Select Instructional Method",
+                    style={'marginBottom': '10px', 'borderRadius': '5px'},
+                ),
+                dcc.Dropdown(
+                    id='math_readiness_ind',
+                    options=[{'label': label, 'value': label} for label in ['Y', 'N']],
+                    placeholder="Select Math Readiness",
+                    style={'marginBottom': '10px', 'borderRadius': '5px'},
+                ),
+                dcc.Dropdown(
+                    id='first_gen_ind',
+                    options=[{'label': label, 'value': label} for label in [
+                        'Null', 'FGNY: High School diploma or GED', 'FGNN: Graduate school',
+                        'FGNN: Graduated from college: Bachelors degree',
+                        'FGNY: Some trade school or community college', 'FGNY: Some college',
+                        'FGNY: Graduated from community college: Asso. degree',
+                        'FGNY: Did not finish High School', 'FGNY: Some grade school',
+                        'FGNY: Completed grade school'
+                    ]],
+                    placeholder="Select First Generation Indicator",
+                    style={'marginBottom': '10px', 'borderRadius': '5px'},
+                ),
+
+                # Submit button Widget
+                html.Button('Submit', id='submit-val', n_clicks=0),
+
+                # Placeholder for output
+                html.Div(id='container-button-basic')
+                ])
         ], style=tab_style, label_style=label_style),
 
         # Styling the tabs
@@ -530,6 +608,76 @@ def update_custom_heatmap(selected_columns, selected_numeric_col, view_mode):
     fig.update_layout(title="Correlation Heatmap")
 
     return fig
+
+
+# Callback to update the logistic regression model prediction
+@app.callback(
+    Output('container-button-basic', 'children'),
+    Input('submit-val', 'n_clicks'),
+    State('total_credit_hours', 'value'),
+    State('inst_hours_earned', 'value'),
+    State('overall_hours_attempted', 'value'),
+    State('overall_hours_earned', 'value'),
+    State('age', 'value'),
+    State('sat_math', 'value'),
+    State('act_composite', 'value'),
+    State('total_credits_enrolled', 'value'),
+    State('ethnicity', 'value'),
+    State('major_x', 'value'),
+    State('instructional_method', 'value'),
+    State('math_readiness_ind', 'value'),
+    State('first_gen_ind', 'value')
+)
+
+def update_output(n_clicks, total_credit_hours, inst_hours_earned, overall_hours_attempted, overall_hours_earned,
+                  age, sat_math, act_composite, total_credits_enrolled,
+                  ethnicity, major_x, instructional_method, math_readiness_ind, first_gen_ind):
+    # Check if submit button has been clicked
+    if n_clicks > 0:
+        # Create DataFrame with the input values
+        test_input = pd.DataFrame([{
+            'Total_Credit_Hours': total_credit_hours,
+            'Inst_Hours_Earned': inst_hours_earned,
+            'Overall_Hours_Attempted': overall_hours_attempted,
+            'Overall_Hours_Earned': overall_hours_earned,
+            'AGE': age,
+            'SAT_MATH': sat_math,
+            'ACT_COMPOSITE': act_composite,
+            'Total Credits Enrolled': total_credits_enrolled,
+            'Ethnicity': ethnicity,
+            'Major_x': major_x,
+            'Instructional_Method': instructional_method,
+            'Math_Readiness_Ind': math_readiness_ind,
+            'FIRST_GEN_IND': first_gen_ind
+        }])
+        
+        # Use logistic regression model to predict (success_by_gpa) based on the inputs
+        predicted_class = pipeline.predict(test_input)[0]
+        # Get predicted probabilities of class labels
+        predicted_proba = pipeline.predict_proba(test_input)[0]
+        # Calculate probability of predicted class
+        probability_of_predicted_class = predicted_proba[predicted_class] * 100
+        
+        # Create descriptive message based on predicted class and probability
+        criteria_description = "a GPA of 3.0 or higher" if predicted_class == 1 else "a GPA below 3.0"
+        probability_description = f"{probability_of_predicted_class:.2f}% certainty"
+        output_message = (
+            f"The model predicts with {probability_description} that the student will achieve {criteria_description}.\n"
+            f"This also implies a {100 - probability_of_predicted_class:.2f}% chance that the student may not achieve a GPA of 3.0 or higher.\n"
+        )
+        
+        # Return a formatted output
+        return dbc.Alert(
+            output_message,
+            # Color code the message
+            color="success" if predicted_class == 1 else "danger",
+            # Formats the message
+            dismissable=True,
+            is_open=True,
+            style={'whiteSpace': 'pre-line'}
+        )
+    # Default output if nothing is submitted
+    return "Enter values and press submit."
 # ================================= Call Backs And Functions =================================
 
 
